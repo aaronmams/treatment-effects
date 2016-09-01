@@ -5,7 +5,7 @@ data.frame(m)
 
 
 #read the Cattaneo2.dta data set in
-df <- read.csv("/Users/aaronmamula/Documents/R projects/cattaneo2.csv")
+df <- read.csv("data/cattaneo2.csv")
 
 #generate some data to illustrate the potential observed mean, probability of being a 
 # smoker increases with age

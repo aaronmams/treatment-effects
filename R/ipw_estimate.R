@@ -45,8 +45,8 @@ df <- tbl_df(df) %>% mutate(w=pi) %>% mutate(weight=ifelse(mbsmoke=='smoker',1/w
 #ATE based on: 
 #http://onlinelibrary.wiley.com/doi/10.1002/sim.6607/epdf
 weighted.mean.smoker <- (1/(sum(df$z/df$w)))*sum(df$z*df$bweight/df$w)
-weight.mean.ns <- (1/sum(((1-df$z)/(1-df$w))))*(sum(((1-df$z)*df$bweight)/(1-df$w)))
-#calculate the weighted mean for smokers and non-smokers
-df <- df %>% mutate(bw=bweight*weight)
+weighted.mean.ns <- (1/sum(((1-df$z)/(1-df$w))))*(sum(((1-df$z)*df$bweight)/(1-df$w)))
 
+#ATE
+weighted.mean.smoker - weighted.mean.ns
 
