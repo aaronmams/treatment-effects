@@ -31,8 +31,6 @@ ggplot(z,aes(x=age,y=bw,color=factor(smoke),size=weight)) + geom_point(shape=1) 
 #------------------------------------------------------------------------------------
 #Now switch over to the actual data
 
-#read the Cattaneo2.dta data set in
-df <- read.csv("data/cattaneo2.csv")
 
 #use the probit link for probability weights like they do in the STATA blog
 probit.bw <- glm(mbsmoke~mage,data=df,family='binomial'(link='probit'))
@@ -49,4 +47,45 @@ weighted.mean.ns <- (1/sum(((1-df$z)/(1-df$w))))*(sum(((1-df$z)*df$bweight)/(1-d
 
 #ATE
 weighted.mean.smoker - weighted.mean.ns
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+#IPW Regression Adjustment
 
+#as near as I can tell from this Posner paper:
+#http://www.stat.columbia.edu/~gelman/stuff_for_blog/posner.pdf
+# regression adjustment with IPW just means including the inverse probability weight
+# in the outcome regression
+
+#read the Cattaneo2.dta data set in
+df <- read.csv("data/cattaneo2.csv")
+
+
+#the treatment model
+df <- df %>% mutate(mage2=mage*mage) %>%
+        mutate(marriedYN=ifelse(mmarried=='married',1,0),
+               prenatal1YN=ifelse(prenatal1=='Yes',1,0))
+
+ipwra.treat <- glm(factor(mbsmoke)~mage+marriedYN+fbaby+mage2+medu,data=df,family='binomial'(link='probit'))
+pi <- predict(ipwra.treat,newdata=df,type="response")
+df$ipwra.p <- pi
+df <- df %>% mutate(ipwra.w=ifelse(mbsmoke=='smoker',1/ipwra.p,1/(1-ipwra.p)))
+
+summary(lm(bweight~factor(mbsmoke)+ipwra.p,data=df))
+
+
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
