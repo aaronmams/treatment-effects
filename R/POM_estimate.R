@@ -5,6 +5,7 @@ data.frame(m)
 
 
 #read the Cattaneo2.dta data set in
+getwd()
 df <- read.csv("data/cattaneo2.csv")
 
 #generate some data to illustrate the potential observed mean, probability of being a 
@@ -46,6 +47,8 @@ mean(pred.smoker)
 lm.ns <- lm(bweight~mage,data=df[df$mbsmoke!='smoker',])
 pred.ns <- predict(lm.ns,newdata=df)
 mean(pred.ns)
+
+ate <- mean(pred.smoker)-mean(pred.ns)
 
 #compare the POM estimate to a simple regression on age, smoker status and interaction
 bw.lm <- lm(bweight~mage+factor(mbsmoke)+factor(mbsmoke)*mage,data=df)
