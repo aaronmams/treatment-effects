@@ -25,7 +25,7 @@ z <- tbl_df(z) %>% mutate(w=pi) %>%
     mutate(weight=ifelse(smoke==1,1/w,1/(1-w)))
 
 ggplot(z,aes(x=age,y=bw,color=factor(smoke),size=weight)) + geom_point(shape=1) + 
-  scale_color_manual(values=c("red","black")) 
+  scale_color_manual(values=c("red","black")) + theme_bw()
 #------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------

@@ -15,7 +15,8 @@ psmoke <-  pnorm((age-mean(age))/sd(age))
 smoke <- rbinom(100,1,psmoke)
 z <- data.frame(age=age,smoke=smoke,bw=3000+(5*age)+(25*smoke) + rnorm(100,100,25))
 
-ggplot(z,aes(x=age,y=bw,color=factor(smoke))) + geom_point() + geom_smooth(method='lm')
+ggplot(z,aes(x=age,y=bw,color=factor(smoke))) + geom_point() + geom_smooth(method='lm') + 
+  theme_bw()
 
 #Next we move on to analyzing the actual birthweight data from Cattaneo 2010
 
