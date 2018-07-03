@@ -5,6 +5,16 @@ output: html_notebook
 
 # Introduction
 
+In this exercise we are going to look at some data on schooling outcomes and early childhood intervention.  The data we will use come from two randomized experiments on early childhood intervention (The Carolina Aberdecian Project and Carolina Approach to Responsive Education).  Participants in the study were randomly selected to receive one or more educational treatments.  The study was pretty interesting and definitely worth reading more about...but a lengthy background is probably unnecessary here.
+
+This exercise is focused on estimating the effect of early childhood interventions on educational outcomes.  Specifically, we will focus on the treatment variable *dc_trt* which indicates whether the subject was chosen to receive the Day Care Treatment.  
+
+## Empirical strategy
+
+The Abecedarian and CARE projects were randomized expiraments. We are going to artifically create a non-randomized trial in order to apply Regression Discontinuity Methods.  We are going to suppose that children with mother's having an IQ below 85 (the median IQ in the data sample) were selected to receive free daycare.  Children in the sample with mother's having an IQ of 85 or above did not receive the treatment.
+
+This mirrors how many social programs work.  In education it seems sensible to try and identify children who may be disadvantaged in the educational system and implement some strategy to counter-act this.  The empirical challenge that this creates is that, since the treatment is non-randomly assigned, it can be difficult to estimate the marginal impact of the intervention.  Regression Discontinuity Designs are one approach for estimating average treatment effects when treatments are non-randomly assigned.
+
 ## R Prerequisites
 
 * data manipulatin with dplyr
