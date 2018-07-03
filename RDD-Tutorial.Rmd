@@ -177,5 +177,71 @@ rdd::DCdensity(RDD.sim$momwais0, median(RDD.df$momwais0), ext.out = TRUE)
 
 ```
 
-The output of the McCrary test give a statistical testing and a graphical illustration.  The null hypothesis of the McCrary test is of discontinuity in the distribution of assignment variable In this case it finds $z$=1.16 with $p$ = 0.244 indicating that we can reject the hypothesis of discontinuity.
+The output of the McCrary test gives a statistical testing and a graphical illustration.  The null hypothesis of the McCrary test is of discontinuity in the distribution of assignment variable In this case it finds $z$=1.16 with $p$ = 0.244 indicating that we can reject the hypothesis of discontinuity.
 
+
+## Placebo tests for local average treatment effects
+
+Another important identifying assumption for RDDs is that the treatment effect only occurs at the cutoff.  We can use placebo tests from the [rddtools](https://cran.r-project.org/web/packages/rddtools/rddtools.pdf) package to test whether this assumption holds.
+
+```{r}
+library(rddtools)
+
+#the rddtools package needs data to be loaded as an rdd_data object
+
+dat_rddtools = rddtools::rdd_data(
+  y = sbiq48,
+  x = momwais0,
+  data = RDD.sim,
+  cutpoint = median(RDD.df$momwais0)
+)
+
+llm_rddtools = rddtools::rdd_reg_np(dat_rddtools)
+
+rddtools::plotPlacebo(llm_rddtools,
+                      same_bw = T,
+                      from = .25,
+                      to = .75)
+
+```
+
+Placebo tests basically ask the question, "what if we estimated the model with the wrong cutoff point."  The idea behind the placebo test is to do something you think is right (estimate the model with the correct cutoff point) then do a bunch of things you think are not right (estimate the model with different cutoff points).  If you get a significant estimate from a 'wrong model' then it strongly suggests that the results of your 'right model' cannot be trusted.
+
+Here we see that for estimates of the local average treatment effect using a variety of other cutoff points are insignificant (the confidence intervals generally include 0).  But the LATE estimated at the correct cutoff point does appear significant.
+
+## Estimation of the impact of early childhood intervention
+
+Finally, we directly address the research question by estimating the treatment effect associated with early childhood intervention.
+
+```{r}
+
+# 
+lm_rdd = rdd::RDestimate(sbiq48 ~ momwais0, RDD.sim,
+                         cutpoint = median(RDD.df$momwais0))
+summary(lm_rdd)
+
+#plot of RDD as implemented in RDD
+plot(lm_rdd)
+```
+
+The local average treatment effect is estimated here to be -9.085 and is statistically significant.  Recall that the reference estimate from the controlled experiment was about 9.8 so our LATE from RDD is pretty close.  The estimate from the rdd package is negative because Child's IQ at the cutoff drops.  This says that, at the cutoff, the IQ values for the treated groups are about 9 points higher than what we would expect to observe in the absence of the treatment.
+
+### Quick note on cleaning up the default plot
+
+The plot above is somewhat helpful but hard to change the defaults.  We can produce a similar plot using basic ggplot options and a Loess smoothing span of 1:
+
+```{r}
+ggplot(RDD.sim,aes(x=momwais0,y=sbiq48,group=dc_trt)) + geom_point() + 
+  geom_smooth(method='loess', span=1) + theme_bw() + 
+  xlab("Mother's IQ") + ylab("Child's IQ")
+
+
+```
+
+# Skills practice
+
+### Lowess Smoothing
+
+1. can you apply the Loess smoother to the data in *Lowes_practice.csv* and generate plots without the use of geom_smooth?  Try several different values for the span of the Loess filter and compare the plots.  
+
+2.  Can you reproduce Figure 8 from Thoemmes, Liao, and Jin to address the sensativity of our point estimates to the chosen bandwidth?
