@@ -1,0 +1,95 @@
+---
+title: "Regression Discontinuity Design Tutorial"
+output: html_notebook
+---
+
+# Introduction
+
+## Examining the data
+
+The data for this exercise comes from a panel data study of early childhood interventions: *The Carolina Abecedarian Project and the Carolina Approach to Responsive Education (CARE), 1972-1992*.  Details on this study as well as data files can be found [here](https://www.icpsr.umich.edu/icpsrweb/ICPSR/studies/4091).  
+
+
+### Reading the data into R
+
+I have stored the primary data file in this project directory. If you have cloned the GitHub repository then the data file is already stored in the 'RDD_data' subdirectory of the 'data' directory.  
+
+The data are available as an SPSS portable file (.por).  I use the *memisc* package in R to read this file format.
+
+```{r}
+library(memisc)
+library(dplyr)
+library(ggplot2)
+
+RDD.df <- tbl_df(as.data.frame(as.data.set(spss.portable.file('data/RDD_data/04091-0001-Data.por'))))
+dim(RDD.df)
+RDD.df
+```
+
+### Structure of the data
+
+These data have 176 observations of 119 variable.  Each row in the data frame is an individual and columns contain individual specific information, intervention/treatment status, and observed outcomes.  
+
+### Exploring treatment status
+
+According to the codebook, there were a menu of possible interventions:
+
+*The Abecedarian study randomized subjects into DAYCARE TREATMENT (treatment versus control) and SCHOOLAGE TREATMENT (treatment, control, and not assigned: subjects left study before receiving an assignment). These two factors are crossed, forming six groups in all. No Abecedarian subjects received Home Visits, so HV_TRT is always "0".*
+
+*The CARE study randomized subjects into three groups: DAYCARE TREATMENT plus HOME VISIT TREATMENT plus SCHOOLAGE TREATMENT, HOME VISIT TREATMENT plus SCHOOLAGE TREAMENT, and CONTROL (no treatment of any kind).*
+
+Let's examine how many units are in each treatment group:
+
+```{r}
+RDD.df %>% group_by(study,dc_trt,sa_trt,hv_trt) %>% summarise(count=n()) 
+
+```
+
+My take away from this is that there are 111 total study subjects and 6 possible groupings in the *Abecedarian* study:
+
+* 23 of those did not receive either treatment (Day Care Treatment or Schoolage Treatment)
+* 25 subject received both treatments
+* 48 received at least 1 but not both treatments
+
+There are 65 study subjects distributed among 3 groups in the CARE study:
+
+* 23 subjects received no treatment of any kind
+* 26 received only the Schoolage Treatment and the Home Visit Treatment
+* 16 received all 3 possible treatments
+
+### Exploring Covariates
+
+There are 119 variables in this data set...far too many to explore individually.  Here we will take a quick look at distributions for a few of the more notable covariates:
+
+* Gender
+* Mother's Age
+* Mother's WAIS score at time of subject's birth (Mom's IQ)
+* Standford - Binet IQ score at 24, 36, adn 48 months.
+
+```{r}
+
+ggplot(RDD.df,aes(x=momsage)) + geom_bar()
+ggplot(RDD.df,aes(x=momwais0)) + geom_density()
+ggplot(RDD.df,aes(x=momwais0,y=sbiq24)) + geom_point() + geom_smooth() + theme_bw() +
+   xlab("Mom's IQ") + ylab("Subject IQ at 24 months")
+```
+
+
+# Analytical Example
+
+## Regression Discontinuity Design
+
+We simulate an RDD by supposing that selection into the treatment groups was done based on a threshold value of mother's IQ.  That is, we suppose that the treatments were assigned to mothers with IQ scores below the median score of the sample.  
+
+```{r}
+RDD.sim <- RDD.df %>% filter(
+                (momwais0 >= median(momwais0) & dc_trt=='Control') |
+                  (momwais0 < median(momwais0) & dc_trt=='Treatment'),!is.na(sbiq48))
+RDD.sim
+```
+
+
+
+
+
+
