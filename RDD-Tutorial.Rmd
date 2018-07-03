@@ -5,6 +5,25 @@ output: html_notebook
 
 # Introduction
 
+## R Prerequisites
+
+* data manipulatin with dplyr
+* data visualization with ggplot2
+* linear models (OLS regression) in R with the lm() function
+
+## R Skills
+
+* data manipulation with memisc
+* smoothing with Lowess (local polynomial regression)
+* McCrary discontinuity tests with the rdd package
+* estimation of RDD models with the rdd and rdtools packages
+
+## Analytical Skills
+
+* basic comfort with regression discontinuity designs
+* estimation of local average treatment effects with RDDs
+* McCrary test for continuity of assignment variable
+
 ## Examining the data
 
 The data for this exercise comes from a panel data study of early childhood interventions: *The Carolina Abecedarian Project and the Carolina Approach to Responsive Education (CARE), 1972-1992*.  Details on this study as well as data files can be found [here](https://www.icpsr.umich.edu/icpsrweb/ICPSR/studies/4091).  
@@ -75,9 +94,9 @@ ggplot(RDD.df,aes(x=momwais0,y=sbiq24)) + geom_point() + geom_smooth() + theme_b
 ```
 
 
-# Analytical Example
+# Analytical Example: Regression Discontinuity Design
 
-## Regression Discontinuity Design
+## Preliminary data manipulation and visualization
 
 We simulate an RDD by supposing that selection into the treatment groups was done based on a threshold value of mother's IQ.  That is, we suppose that the treatments were assigned to mothers with IQ scores below the median score of the sample.  
 
@@ -89,7 +108,74 @@ RDD.sim
 ```
 
 
+This is a "sharp RDD."  Let's take a look at an overly simplified way of evaluating the treatment effect: a local smoothing trend.  
+
+```{r}
+ggplot(RDD.df,aes(x=momwais0,y=sbiq48,group=dc_trt,color=dc_trt,shape=dc_trt)) + geom_point() + 
+  geom_point(size = 2) +
+  geom_smooth(method = "loess",
+             formula = y ~ x,
+             aes(linetype = dc_trt)) + theme_bw() + ylab("Child IQ at age 2") +
+             xlab("Mother’s IQ\n\n(a)") +
+             xlim(c(60, 110)) + ylim(c(60, 130)) +
+             scale_colour_manual(values = c("darkgrey", "black")) +
+             theme(legend.position = "none")
+
+ggplot(RDD.sim) +
+  aes(
+     x = momwais0,
+     y = sbiq48,
+     group = dc_trt,
+     color = dc_trt,
+     shape = dc_trt
+  ) +
+geom_point(size = 2) +
+geom_smooth(method = "loess",
+            formula = y ~ x,
+            aes(linetype = dc_trt)) + theme_bw() + ylab("Child IQ at age 2") +
+            xlab("Mother’s IQ\n\n(b)") + xlim(c(60, 110)) + ylim(c(60, 130)) +
+            scale_colour_manual(values = c("darkgrey", "black")) +
+            theme(legend.title = element_blank()) +
+            scale_shape_discrete(
+    name = "DC_TRT",
+    breaks = c("0", "1"),
+    labels = c("Treatment", "Control")
+  )
+
+```
 
 
+The sharp RDD is evident in the 2nd plot where all subjects with Mother's with an IQ score below 85 get the treatment and all subjects with Mother's with an IQ score at or above 85 are controls.
 
+## A naive estimate of treatment effect:
+
+```{r}
+#naive treatment effect from RDD data
+lm_naive = lm(sbiq48 ~ dc_trt, RDD.df)
+summary(lm_naive)
+
+```
+
+Things to note here:
+
+1. the original study was a randomized control experiment...so the average treatment effect of the interventions can be estimated without regard to selection into groups
+
+2. our hypothetical example is more like an observational study where selection into groups is a concern
+
+3. so the estimate above of 9.88 IQ points is a baseline against which our RDD estimates will evenutally be measured
+
+## A McCrary test for continuity of assignment
+
+The McCrary test was developed by [McCrary 2008](https://eml.berkeley.edu/~jmccrary/mccrary2006_DCdensity.pdf) and I have provided a .pdf copy of that paper.  The basic concern here is that if selection into the treatment group can be gamed, we will end up with lots of people (relative to expectations) who just barely qualify for the treatment group and few people (relative to expectations) who just barely don't qualify for the treatment.  Since the whole point of RDDs is to compare what happends to subject who are just below versus just above the treatment cutoffs, it would be bad to have subjects be able to 'game the system.'
+
+The classic example here is the 'mercy pass' example.  Suppose students are assigned to summer school based on final grade.  If the teacher gives a 'mercy pass' to students who are very close to the cutoff we will end up a relatively high number of students just barely on the right side of the cutoff (those who do not receive the summer school treatment) and relatively few students on the left side of the cutoff (those who do receive the treatment).  If the students just on the right side of the cutoff are students for which the treatment would have been beneficial (because they were supposed to receive the treatment) then the RDD estimate of the impact of summer school on student performance will be baised.
+
+```{r}
+library(rdd)
+#McCrary sorting test as implemented in RDD
+rdd::DCdensity(RDD.sim$momwais0, median(RDD.df$momwais0), ext.out = TRUE)
+
+```
+
+The output of the McCrary test give a statistical testing and a graphical illustration.  The null hypothesis of the McCrary test is of discontinuity in the distribution of assignment variable In this case it finds $z$=1.16 with $p$ = 0.244 indicating that we can reject the hypothesis of discontinuity.
 
