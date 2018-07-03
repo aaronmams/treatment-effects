@@ -15,6 +15,9 @@ The Abecedarian and CARE projects were randomized expiraments. We are going to a
 
 This mirrors how many social programs work.  In education it seems sensible to try and identify children who may be disadvantaged in the educational system and implement some strategy to counter-act this.  The empirical challenge that this creates is that, since the treatment is non-randomly assigned, it can be difficult to estimate the marginal impact of the intervention.  Regression Discontinuity Designs are one approach for estimating average treatment effects when treatments are non-randomly assigned.
 
+Where practical implementation is concerned, there is a really cool paper by Thoemmes, Liao, and Jin (2017) that uses the Abecedarian Project data and CARE data to illustrate use of RDD tools in R.  This R Notebook will use that paper as a guide and try to reproduce much of the analysis in Thoemmes, Liao, and Jin (2017). 
+
+
 ## R Prerequisites
 
 * data manipulatin with dplyr
