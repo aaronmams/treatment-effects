@@ -56,6 +56,8 @@ library(ggplot2)
 RDD.df <- tbl_df(as.data.frame(as.data.set(spss.portable.file('data/RDD_data/04091-0001-Data.por'))))
 dim(RDD.df)
 RDD.df
+
+#trivial change for illustration
 ```
 
 ### Structure of the data
