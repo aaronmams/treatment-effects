@@ -1,0 +1,264 @@
+---
+title: "RDD Remix"
+output: html_notebook
+---
+
+The last R Notebook I cooked up on RDDs was focused on giving a quick overview and conducting a causal inference analysis using regression discontinuity.  Here, we are going to back track a little and dig into a few of foundational elements.  
+
+As a quick side note: I like iterative approaches when working with a new topic or even just a method or approach I haven't used in some time.  I understand it's not for everybody but I find it pretty valuable.  In general I like to:
+
+1. try to understand the technique on a conceptual level - what does it do? what problems does it try to solve? how does it work?
+
+2. try to represent the technique on an illustrative level - can a representative plot or drawing be constructed? not all estimators or problems can be reduced down to a drawing....but many can.
+
+3. try to implement the technique on an easy-to-understand (trivial) problem - do the results look vaguely like I thought they should? 
+
+4. work through the math - try to understand an nuance that might be causing disconnect between expectation and reality in Step 3.
+
+5. try to implement the method on a non-trivial problem.
+
+## Starters
+
+Load up the necessary libraries and get the data into our current workbook.
+
+
+```{r,warning=F}
+library(memisc)
+library(dplyr)
+library(ggplot2)
+library(data.table)
+```
+
+```{r}
+RDD.df <- tbl_df(as.data.frame(as.data.set(spss.portable.file('data/RDD_data/04091-0001-Data.por'))))
+dim(RDD.df)
+RDD.df
+
+RDD.sim <- RDD.df %>% filter(
+                (momwais0 >= median(momwais0) & dc_trt=='Control') |
+                  (momwais0 < median(momwais0) & dc_trt=='Treatment'),!is.na(sbiq48))
+RDD.sim
+```
+
+In our last workbook we skipped right to a linear regression of child IQ on treatment status for an early childhood intervention (free daycare).  Since the data come from a well-known randomized controlled experiment, we felt pretty confident running this regression without much explaination.  But what if we were working with a data set without as many analytical miles on it?  As a first pass we'd probably want to know if the randomized design were trustworthy.  One way to do this is to explore the distribution of covariates across groups to assuage any fears about group level selection or self-selection.
+
+
+```{r}
+
+#ggplot(RDD.df,aes(x=dc_trt,y=momwais0)) + geom_boxplot() + theme_bw()
+
+#create a table of summary stats between groups for mom's IQ, apgar score, and gestation in weeks
+sum.stat <- RDD.df %>% group_by(dc_trt) %>%
+              summarise(momiq=mean(momwais0,na.rm=T),
+                        momiq_se=sd(momwais0,na.rm=T),
+                        apgar=mean(apgar5,na.rm=T),
+                        apgar_se=sd(apgar5,na.rm=T),
+                        gest=mean(gestage,na.rm=T),
+                        gest_se=sd(gestage,na.rm=T))
+print.data.frame(sum.stat)
+```
+
+There's not much visual difference between mean values across control/treatment groups.  But we can test this observation pretty easily.  A t-test of difference in means tests a null hypothesis of no difference in means.  The p-value associated with this test is  
+
+```{r}
+#difference in mom's IQ
+t.test(RDD.df$momwais0[RDD.df$dc_trt=='Control'],RDD.df$momwais0[RDD.df$dc_trt=='Treatment'])$p.value
+```
+
+indicating a failure to reject the null hypothesis of equal means.
+
+We can repeat this test for APGAR5 (the 5 minute apgar score) and GESTAGE (gestation age in weeks):
+
+```{r}
+#difference in mom's IQ
+t.test(RDD.df$apgar5[RDD.df$dc_trt=='Control'],RDD.df$apgar5[RDD.df$dc_trt=='Treatment'])$p.value
+t.test(RDD.df$gestage[RDD.df$dc_trt=='Control'],RDD.df$gestage[RDD.df$dc_trt=='Treatment'])$p.value
+
+```
+
+For completeness we may want to test the *apgar5* and *gestage* variables using a non-parametric test for equality of distribution functions.  These variables appear to be counts over a limited range indicating a mean statistic might not be the best way to evaluate their distributions:
+
+```{r}
+table(RDD.df$apgar5)
+table(RDD.df$gestage)
+
+ggplot(RDD.df,aes(x=apgar5,color=dc_trt)) + geom_density() + theme_bw() 
+```
+
+A popular non-parametric test for evaluating equality of distribution functions is the Kolmogorov-Smirnov test.  The KS test evaluates the maximum difference between Cumulative Distribution Functions to determine if random variables X and Y are drawn from the same underlying distribution:
+
+```{r}
+ks.test(RDD.df$apgar5[RDD.df$dc_trt=='Control'],RDD.df$apgar5[RDD.df$dc_trt=='Treatment'])
+ks.test(RDD.df$gestage[RDD.df$dc_trt=='Control'],RDD.df$gestage[RDD.df$dc_trt=='Treatment'])
+
+```
+
+Plot the CDFs for these variables:
+
+```{r}
+
+ggplot(RDD.df, aes(apgar5,color=dc_trt)) + stat_ecdf(geom = "step") + 
+  theme_bw() + ggtitle('Apgar5 Empirical CDF')
+```
+
+### Kolmogorov-Smirnov Test Foundations
+
+The KS-test is pretty well-known but we present the statistical foundations here for completeness.  The KS test is based on the empirical distribution function:
+
+$F_{n}(x)=\frac{1}{n}\sum_{i=1}^{n}I_{[-inf,x]}(X_{i})$
+
+where the indicator function $I_{[-inf,x]}(X_{i})$ is equal to 1 if $X_{i}<x$ and 0 otherwise.
+
+The test statistic is based on the distance between an empirical distribution function and a reference distribution:
+
+$D_{x}=sup_{x}|F_{n}(x)-F_{x}|$
+
+In the case where we would like to test whether two empirical sampling distributions are consistent with the same underlying distribution we use:
+
+$D_{n,m}=sup_{x}|F_{1,n}(x)-F_{2,m}(x)|$
+
+The null hypothesis of equal distributions is rejected if
+
+$D_{n,m}>c(\alpha)\sqrt(\frac{n+m}{nm})$
+
+and $c(\alpha)$ is approximated as:
+
+$\sqrt(\frac{1}{2}ln\frac{\alpha}{2})$.
+
+
+## Loess Regression
+
+The *rdd* package that we used last time uses local linear regression to estimate the average treatment effect in the neighborhood of the cutoff.  Here we walk through a simple exercise to replicate some important output from that package using functions that live outside of that package.  This is done in order to strenthen our understanding of what's happening inside the package 'black box.'
+
+First, let's revist our estimate of the average treatment effect of the *Day Care Treatment* intervention.
+
+```{r}
+lm_rdd = rdd::RDestimate(sbiq48 ~ momwais0, RDD.sim,
+                         cutpoint = median(RDD.df$momwais0))
+summary(lm_rdd)
+plot(lm_rdd)
+abline(v=85,col='red')
+abline(h=96,col='red')
+abline(h=87,col='red')
+```
+
+Two things I want to emphasize here:
+
+1. The *RDestimate()* function allows the user to supply a bandwidth parameter.  If we do not supply the bandwidth parameter, the function uses some optimized value.  In this case, it choose 11.095.  
+
+2. The estimate of the local average treatment effect is 9.085 which is not significant at the 10% level
+
+
+We can perform our own local linear regression to get an estimate of the treatment effect in the neighborhood of the discontinuity by using R's native *loess()* function.  
+
+```{r}
+# treatment effect 'by hand'
+treat <- RDD.sim[RDD.sim$momwais0<median(RDD.df$momwais0),]
+m1 <- loess(sbiq48~momwais0,data=treat,span=1.095,control=loess.control(surface='direct'))
+control <- RDD.sim[RDD.sim$momwais0>=median(RDD.df$momwais0),]
+m2 <- loess(sbiq48~momwais0,data=control,span=1.095,control=loess.control(surface='direct'))
+
+predict(m1,newdata=data.frame(momwais0=85)) - predict(m2,newdata=data.frame(momwais0=85))
+
+
+ggplot(RDD.sim,aes(x=momwais0,y=sbiq48,shape=dc_trt)) + geom_point() + 
+   geom_smooth(method='loess',span=1.1) + geom_vline(aes(xintercept=85),color='red') + 
+  geom_hline(aes(yintercept=96),color='red') + geom_hline(aes(yintercept=87),color='red') + 
+   theme_bw()
+```
+
+One important thing to notice here is that, by default, the *predict* method of a loess object won't extrapolate beyond the data.  To allow extrapolation up to the discontinuity we need to use the option:
+
+* *control=loess.control(surface='direct')*
+
+**DISCUSSION QUESTIONS**: how do we derive the standard error of the local average treatment effect estimate? how do we evaluate significance?
+
+## Placebo Tests
+
+We can try to recreate the placebo test that we produced last time using the *rddtools* package.  In this case I'm going to use local linear regression to estimate the average treatment effect for models that we know to be incorrect.  That is, we know the cutoff for treatment is momwais0=85 because that is how we set up the data.  In this exercise we are going to:
+
+1. set a different cutoff value
+2. keep only the *dc_trt='Treatment'* observations on the left side of this cutoff and only the *dc_trt='Control'* observeration on the right side of this cutoff
+3. use a local linear regression to evaluate whether there is a 'jump' at this new cutoff value.
+
+We evaluate the 'jump' by estimating the following regression:
+
+$y_{i}=\alpha + \beta X_{i} + \tau D_{i} + \gamma D_{i}X_{i}$
+
+Here, a 'jump' occurs at the cutoff if the parameter $\tau$ is estimated to be significant.  
+
+The final parameter to define here is the bandwidth.  This determines how many observations to the left and right of the new cutoff are included in the regression.  Our initial estimates using the *rdd* package choose this value for us and set it at 11.095.  For simplicity, we'll just use that value.
+
+```{r}
+
+#placebo tests by hand
+placebo.fn<-function(cutpoint,bw){
+
+  s=bw/10
+  s
+  if(cutpoint<85){
+    df <- RDD.df[RDD.df$momwais0<85,]
+  }else{
+    df <- RDD.df[RDD.df$momwais0<85,]
+  }
+ 
+ 
+  below <- loess(sbiq48~momwais0,data=df[df$momwais0<cutpoint,],span=s,control=loess.control(surface='direct'))
+  above <- loess(sbiq48~momwais0,data=df[df$momwais0>=cutpoint,],span=s,control=loess.control(surface='direct'))
+
+#summary(below)
+p1 <- predict(below,newdata=data.frame(momwais0=cutpoint),se=T)
+p2 <- predict(above,newdata=data.frame(momwais0=cutpoint),se=T)
+
+return(data.frame(cutpoint=cutpoint,est_below=p1$fit,est_below_se=p1$se.fit,est_above=p2$fit,est_above_se=p2$se.fit))
+}
+
+placebo <- data.frame(rbindlist(lapply(c(75:84),placebo.fn,bw=11.095)))
+head(placebo)
+```
+
+```{r}
+#placebo with local linear regression
+
+#estimation equation is:
+# y_i=alpha + beta*(X_i-c) + tau*D_i + gamma*(X_i-c)*D_i
+#basically, we add an intercept and slope shifter on either side of the threshold and the 
+# intercept shifter is the estimate of the local average treatment effect
+
+placebo.fn <- function(h,c){
+
+df <- RDD.df  %>%
+       filter(momwais0<c & dc_trt=='Treatment'|momwais0>=c & dc_trt=='Control') %>%
+  filter(momwais0>=c-h & momwais0<c+h) %>%
+        mutate(xi = momwais0-c) %>%
+        mutate(trt=ifelse(dc_trt=='Control',0,1)) %>%
+        mutate(xiD = xi*trt)
+
+lm1 <- lm(sbiq48~xi+trt+xiD,data=df)
+#summary(lm1)
+
+return(data.frame(point_est=coef(summary(lm1))["trt", "Estimate"],se=coef(summary(lm1))["trt", "Std. Error"],
+                  cut=c))
+}
+
+
+#now by messing with the cutoff we can produce placebo estimates
+placebo.df <- data.frame(rbindlist(lapply(c(75,76,77,78,79,80,82,85,87,88,89,90,91,92,93,94,95),
+                                          placebo.fn,h=11.09)))
+
+
+placebo.df <- placebo.df %>% mutate(lower=point_est-(1.96*se),
+                                    upper=point_est+(1.96*se))
+
+
+#plot the placebo estimates with confidence intervals
+p<- ggplot(placebo.df, aes(x=cut, y=point_est)) + 
+  geom_point()+
+  geom_errorbar(aes(ymin=point_est-(1.96*se), ymax=point_est+(1.96*se)), width=.2,
+                 position=position_dodge(0.05)) + 
+
+  theme_bw()
+print(p)
+```
+
+This looks a bit different than the 'black box' estimates of placebo tests from the *rdd* package.  We'll need to look into why that is.
