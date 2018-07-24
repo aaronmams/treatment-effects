@@ -6,25 +6,522 @@ output: html_notebook
 
 ### Resources
 
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+To get started talking about p-values, controlled experiments and p-hacking here are some pretty accessible readings.
+
+### Just some background on p-values
+
 [Andrew Gelman on sample size and interactions](http://andrewgelman.com/2018/03/15/need-16-times-sample-size-estimate-interaction-estimate-main-effect/)
+
+*The most important point here, though, has nothing to do with statistical significance. It’s just this: Based on some reasonable assumptions regarding main effects and interactions, you need 16 times the sample size to estimate an interaction than to estimate a main effect.*
+
+*And this implies a major, major problem with the usual plan of designing a study with a focus on the main effect, maybe even preregistering, and then looking to see what shows up in the interactions. Or, even worse, designing a study, not finding the anticipated main effect, and then using the interactions to bail you out. The problem is not just that this sort of analysis is “exploratory”; it’s that these data are a lot noisier than you realize, so what you think of as interesting exploratory findings could be just a bunch of noise.*
+
+*I don’t know if all this in the textbooks, but it should be.*
+
 
 [Gelman again](http://andrewgelman.com/2017/12/04/80-power-lie/), is 80% power really even a thing?
 
+*The funny thing is, when you design a study it seems like it should be so damn easy to get 80% power. It goes something like this: Assume a small effect size, say 0.1 standard deviations; then to get 2.8 standard errors from zero you just need 0.1 = 2.8/sqrt(N), thus N = (2.8/0.1)^2 = 784. Voila! OK, 784 seems like a lot of people, so let’s assume a effect size of 0.2 standard deviations, then we just need N = 196, that’s not so bad. NIH, here we come!*
+
+*What went wrong? Here’s what’s happening: (a) effects are typically much smaller than people want to believe, (b) effect size estimates from the literature are massively biased, (c) systematic error is a thing, (d) so is variation across experimental conditions. Put it all together, and even that N = 784 study is not going to do the job—and even if you do turn up a statistically significant difference in your particular experimental conditions, there’s no particular reason to expect it will generalize. So, designing a study with 80% power is not so easy after all.*
+
+
+[another Gelman paper](http://www.stat.columbia.edu/~gelman/research/unpublished/abandon.pdf).  In this one Gelman offers some recommendations for how to use p-values responsibly:
+
+*Second, for authors, we recommend studying and reporting the totality of their data and relevant results rather than focusing on single comparisons that surpass some p-value or other statistical threshold. In doing so, we recommend that authors use the neglected factors to motivate their statistical analyses and writing. For example, they might include in their manuscripts a section that directly addresses each in turn in the context of the totality of their data and results. For example, this section could discuss the study design in the context of subject-matter knowledge and expectations of effect sizes, for example as discussed by Gelman and Carlin [2014]. As another example, this section could discuss the plausibility of the mechanism by (i) formalizing the hypothesized mechanism for the effect in question and explicating the various components of it, (ii) clarifying which components were measured and analyzed in the study, and (iii) discussing aspects of the data results that support the proposed mechanism as well as those (in the full data) that are in conflict with it.*
+
+[here Gelman advocates for Bayesian Model Selection over p-values](http://www.stat.columbia.edu/~gelman/research/published/jasa_signif_2.pdf)
+
+*Our own preferred replacement for hypothesis testing and p-values is model expansion and Bayesian inference, addressing concerns of multiple comparisons using hierarchical modeling (Gelman, Hill, and Yajima, 2013) or through non-Bayesian regularization techniques such as lasso (Lockhart et al., 2013). The general idea is to use Bayesian or regularized inference as a replacement of hypothesis tests but in the manner of Kruschke (2013), through estimation of continuous parameters rather than by trying to assess the probability of a point null hypothesis. And, as we discuss in Sections 2.2–2.4 above, informative priors can be crucial in getting this to work. Indeed, in many contexts it is the prior information rather than the Bayesian machinery that is the most important. NonBayesian methods can also incorporate prior information in the form of postulated effect sizes in post-data design calculations (Gelman and Carlin, 2014). In short, we’d prefer to avoid hypothesis testing entirely and just perform inference using larger, more informative models.*
+
+[an example from the internet](http://darwin.eeb.uconn.edu/uncommon-ground/blog/2017/01/09/against-null-hypothesis-testing-the-elephants-and-andrew-gelman-edition/):
+
+*To take Gelman’s example, suppose we had an experiment with a control, treatment A, and treatment B. Our data suggest that treatment A is not different from control (P=0.13) but that treatment B is different from the control (P=0.003). That’s pretty clear evidence that treatment A and treatment B are different, right? Wrong.*
+
+*P=0.13 corresponds to a treatment-control difference of 1.5 standard deviations; P=0.003, to a treatment-control difference of 3.0 standard deviations, a difference of 1.5 standard deviations, which corresponds to a P-value of 0.13. Why the apparent contradiction? Because if we want to say that treatment A and treatment B are different from one another, we need to compare them directly to each other. When we do so, we realize that we don’t have any evidence that the treatments are different from one another.*
+
+*As Parthasarthy points out in a similar example, a better interpretation is that we have evidence for the ordering (control < treatment A < treatment B). Null hypothesis significance testing could easily mislead us into thinking that what we have instead is (control = treatment A < treatment B). The problem arises, at least in part, because no matter how often we remind ourselves that it’s wrong to do so, we act as if a failure to reject the null hypothesis is evidence for the null hypothesis. Parthasarthy describes nicely how we should be approaching these problems:*
+
+*It’s absurd to think that anything exists in isolation, or that any treatment really has “zero” effect, certainly not in the messy world of living things. Our task, always, is to quantify the size of an effect, or the value of a parameter, whether this is the resistivity of a metal or the toxicity of a drug.*
+
+*We should be focusing on estimating the magnitude of effects and the uncertainty associated with those estimates, not testing null hypotheses.*  
+
+[a short post of p-values and interaction effects](https://eighteenthelephant.wordpress.com/2016/04/29/how-do-i-hate-p-values-let-me-count-the-ways/)
+
+
 [Gelman Type S and Type M Error](http://www.stat.columbia.edu/~gelman/research/published/PPS551642_REV2.pdf)
 
+### What is the Garden of Forking Paths?
 
+Also known as Researcher Degrees of Freedom.
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+[Gelman Explains here](http://www.stat.columbia.edu/~gelman/research/unpublished/p_hacking.pdf)
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+# Now for some code related to statistical power
+
+## An AB Type Test
+
+* Treatment A is a red subscription button
+* Control (B) is a black subscription button
+* Conversion rate for the control is 0.2 (20% of website visitors sign up)
+* Hypothesized effect size is 10% - meaning we expect the conversion rate with the red button to be 22%
+
+If we run a randomized experiment to test the red button versus the black button, how many individuals in each case (A and B) do we need in order to get a study with 80% power?
+
+To start, let's plot a sampling distribution under the null hypothesis of no difference:
 
 ```{r}
-plot(cars)
+df1<- data.frame(obs=c(1:5000),x=rbinom(5000,1,0.04))
+df2 <- data.frame(obs=c(1:5000),x=rbinom(5000,1,0.05))
+nrow(df1[df1$x==1,])/nrow(df1)
+nrow(df2[df2$x==1,])/nrow(df2)
+
+sim.fn <- function(p1,p2,nsample){
+  x1 <- rbinom(nsample,1,p1)
+  x2 <- rbinom(nsample,1,p2)
+  return((sum(x2)/length(x2)) - (sum(x1)/length(x1))) 
+}
+
+z <- list()
+for(i in 1:1000){
+  z[[i]] <- sim.fn(p1=0.04,p2=0.04,nsample=5000)
+}
+z <- data.frame(sim=c(1:1000),diff=unlist(z))
+
+reject <- quantile(z$diff,probs=c(0.95))
+z <- z %>% mutate(null=ifelse(diff>=reject,'reject','do not reject')) 
+
+ggplot(z,aes(x=diff)) + geom_histogram(aes(y=..density..)) + 
+  geom_histogram(data=subset(z,diff>=reject), 
+   colour="black", fill="red") + geom_density() +
+  geom_vline(xintercept=reject,color='red') + theme_bw()
 ```
 
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+With $\alpha = 0.05$ and a one-tailed test, we would reject the null hypothesis of equal proportions if we conducted the expiriment and found a difference of 0.0064 or greater.  That is, a conversion rate of 0.64% or more would prompt us to reject the null of equal proportions even when the underlying population proportions were actually equal...and this could be expected to happen about 5% of the time.
 
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
 
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+Now, let's use a Jarque-Bera test to see if the differences we generated are approximately normally distributed:
+
+```{r}
+library(tseries)
+jarque.bera.test(z$diff)
+```
+
+With $p>0.1$ we fail to reject the null hypothesis of a normally distributed series...which is cool.  
+
+
+Now, if the true difference in proportions was 1% - A 5% conversion rate for the red button and a 4% conversion rate for the black button - we would observe a different sampling distribution.  We can plot this distribution along with the null distribution.
+
+```{r}
+
+null <- list()
+test <- list()
+for(i in 1:10000){
+  null[[i]] <- sim.fn(p1=0.04,p2=0.04,nsample=5000)
+  test[[i]] <- sim.fn(p1=0.04,p2=0.05,nsample=5000)
+} 
+
+null <- data.frame(sim=c(1:10000),diff=unlist(null))
+rejection.region <- quantile(null$diff,probs=c(0.95))
+
+test <- data.frame(sim=c(1:10000),diff=unlist(test))
+
+comp.df <- null %>% inner_join(y,by=c('sim'))
+
+ggplot(comp.df,aes(x=diff.x)) + geom_histogram(color='blue',fill='white') + 
+  geom_histogram(data=test.df,aes(x=diff.y),color='red',fill='gray') + 
+  geom_vline(xintercept=rejection.region) + 
+  theme_bw()
+
+```
+
+
+Now, let's find the proportion of the sampling distribution under the alternative hypothesis that lies to the left of the rejection region:
+
+```{r}
+power <- test %>% mutate(fail.to.reject=ifelse(diff<=rejection.region,1,0)) %>%
+               group_by(fail.to.reject) %>% summarise(count=n())
+1-power$count[power$fail.to.reject==1]/nrow(test)
+```
+
+
+### Decrease the effect size
+
+A change from 0.04 to 0.05 represents a 25% increase in conversion. That's pretty big.  What about a 10% increase in conversion.  This takes us from a conversion rate of 0.04 to 0.44.  How detectable would this change be with a sample size of 5,000 in each group:
+
+```{r}
+null <- list()
+test <- list()
+for(i in 1:10000){
+  null[[i]] <- sim.fn(p1=0.04,p2=0.04,nsample=5000)
+  test[[i]] <- sim.fn(p1=0.04,p2=0.044,nsample=5000)
+} 
+
+null <- data.frame(sim=c(1:10000),diff=unlist(null))
+rejection.region <- quantile(null$diff,probs=c(0.95))
+
+test <- data.frame(sim=c(1:10000),diff=unlist(test))
+
+comp.df <- null %>% inner_join(test,by=c('sim'))
+
+ggplot(comp.df,aes(x=diff.x)) + geom_histogram(color='blue',fill='white') + 
+  geom_histogram(data=comp.df,aes(x=diff.y),color='red',fill='gray') + 
+  geom_vline(xintercept=rejection.region) + 
+  theme_bw()
+
+#calculate power
+power <- test %>% mutate(fail.to.reject=ifelse(diff<=rejection.region,1,0)) %>%
+               group_by(fail.to.reject) %>% summarise(count=n())
+1-power$count[power$fail.to.reject==1]/nrow(test)
+```
+
+### What happens to power when reduce the sample size?
+
+Here we'll go back to the original effect size of 25% but reduce the sample size in each group down to 1,000.  With 5,000 in each group we got a power around .8.
+
+```{r}
+null <- list()
+test <- list()
+for(i in 1:10000){
+  null[[i]] <- sim.fn(p1=0.04,p2=0.04,nsample=1000)
+  test[[i]] <- sim.fn(p1=0.04,p2=0.05,nsample=1000)
+} 
+
+null <- data.frame(sim=c(1:10000),diff=unlist(null))
+rejection.region <- quantile(null$diff,probs=c(0.95))
+
+test <- data.frame(sim=c(1:10000),diff=unlist(test))
+
+comp.df <- null %>% inner_join(test,by=c('sim'))
+
+ggplot(comp.df,aes(x=diff.x)) + geom_histogram(color='blue',fill='white') + 
+  geom_histogram(data=comp.df,aes(x=diff.y),color='red',fill='gray') + 
+  geom_vline(xintercept=rejection.region) + 
+  theme_bw()
+
+#calculate power
+power <- test %>% mutate(fail.to.reject=ifelse(diff<=rejection.region,1,0)) %>%
+               group_by(fail.to.reject) %>% summarise(count=n())
+1-power$count[power$fail.to.reject==1]/nrow(test)
+```
+
+### Minimum sample needed to detect a 10% change in conversion
+
+There are more elegant ways to do this but I'm going to brute force it for the time being for illustrative purposes.  Let's fix the following:
+
+* $\alpha = 0.05$
+* Effect size = 10%
+
+Now we'll solve for $1-\beta$ with different sample sizes:
+
+```{r}
+t <- Sys.time()
+n <- seq(from=10000,to=100000,length.out=10)
+n
+length(n)
+
+pwr <- list()
+for(j in 1:length(n)){
+null <- list()
+test <- list()
+  for(i in 1:1000){
+  null[[i]] <- sim.fn(p1=0.04,p2=0.04,nsample=n[j])
+  test[[i]] <- sim.fn(p1=0.04,p2=0.044,nsample=n[j])
+  } 
+
+null <- data.frame(sim=c(1:1000),diff=unlist(null))
+rejection.region <- quantile(null$diff,probs=c(0.95))
+
+test <- data.frame(sim=c(1:1000),diff=unlist(test))
+
+comp.df <- null %>% inner_join(test,by=c('sim'))
+power <- test %>% mutate(fail.to.reject=ifelse(diff<=rejection.region,1,0)) %>%
+               group_by(fail.to.reject) %>% summarise(count=n())
+
+pwr[[j]] <- 1-power$count[power$fail.to.reject==1]/nrow(test)
+}
+
+Sys.time() - t
+
+pwr.curve <- data.frame(n=n,pwr=unlist(pwr))
+ggplot(pwr.curve,aes(x=n,y=pwr)) + geom_point() + geom_line() + 
+  xlab("sample size") + ylab("power") + theme_bw() 
+```
+
+
+
+### Calculating power mechanically
+
+Simulations are nice but time consuming.  What if we wanted to do the power analysis above without waiting for thousands of simulated experiments to run?  For the case above we can follow these steps:
+
+
+```{r}
+# power for our original 25% difference in effect size with sample size = 5,000
+power.prop.test(p1=0.04,p2=0.05,n=5000,alternative="one.sided")
+
+# power for our new 10% difference in effect size with sample size = 5,000
+power.prop.test(p1=0.04,p2=0.044,n=5000,alternative="one.sided")
+```
+
+
+
+
+### Quick Introduction to Bayesian AB Testing
+
+There are several gentle introductions to Bayesian AB testing on the web.  [I really like this one](https://zlatankr.github.io/posts/2017/04/07/bayesian-ab-testing) for it's nice blend of intuition and math.
+
+Bayes Rule says:
+
+$P(\theta|X)=\frac{P(X|\theta)P(\theta)}{P(X)}$
+
+1.  $P(\theta|X)$ is the prior probability of observing the parameter $\theta$ given the data, $X$.
+2.  $P(X|\theta)$ is the likelihood of observing the data sample $X$ given the parameter $\theta$.
+3.  $P(X)$ is the marginal probability of observing the data sample $X$.
+
+
+This can be leveraged for AB testing in the following way.  Suppose we belive the current success rate (number of webpage visitors that sign up) is 0.3.  We want to test whether some webpage improvements will get us a success rate of 0.4.  
+
+In the Bayesian sense what we would like to do is show a bunch of people the original page and estimate the posterior distribution of the success rate.  Then show a bunch of people the new webpage and estimate the posterior distribution of that success rate.  Comparing the posterior distributions of two success rates will tell us whether we belive the success rate for the new page is better than the success rate for the old page.
+
+The mechanics of Bayesian Stats are a little intimidating but the basic idea for AB testing can be distilled like so:
+
+Given the current success rate of 0.3 and a data sample of a few hundred people who were shown the first page, the prior distribution of success rate is:
+
+$P(\theta=0.3|X)=\frac{P(\theta = 0.3)P(X|\theta=0.3)}{P(X)}$
+
+Let's start with the likelihood:
+
+Each individual either signs up or doesn't so the likelihood of the data is a Bernoulli distribution with success rate $\theta$:
+
+$P(X|\theta) = \Pi_{i}^{N}\theta^{x_{i}}(1-\theta)^{1-x_{i}}$
+
+The prior is a little more complicated but let's gloss over the complexity for now and just accept that we want a conjugate prior for the binomial distribution and sources tell us that the conjugate distribution for the binomial is the Beta distribution.  So we will set our prior on $\theta$ to be,
+
+$\theta ~ Beta(a,b)=\frac{\theta^{a-1}(1-\theta)^{b-1}}{B(a,b)}$
+
+where $B(a,b)$ is the Beta function.
+
+For our numerical example we stated that we belive $\theta$ to be around 0.3.  Let's look at a beta distribution centered around 0.3:
+
+```{r}
+hist(rbeta(100,5,5))
+hist(rbeta(100,50,50))
+hist(rbeta(1000,0.3*1000,0.7*1000))
+```
+
+
+Since we used a conjugate prior there is an analytical way to express the posterior distribution of $\theta$:
+
+$P(\theta|X) \alpha P(X|\theta)P(\theta)$
+
+which is,
+
+$P(\theta|X) \alpha \Pi_{i}^{N}\theta^{x_{i}}(1-\theta)^{1-x_{i}}\theta^{a-1}(1-\theta)^{b-1}$
+
+[this post](https://zlatankr.github.io/posts/2017/04/07/bayesian-ab-testing) shows that this expression for the posterior is equivalent to a beta distribution with parameters $a'$ and $b'$ where
+
+$a'= a + \sum_{i}^{N} x_{i}$
+
+and
+
+$b' = b + N - \sum_{i}^{N}x_{i}$
+
+
+Let's go ahead and step through this process from start-to-finish:
+
+### Step 1: simulate some data
+
+Let's start by simulating some data
+
+```{r}
+X <- rbinom(100,1,0.3)
+X
+```
+
+### Step 2: propose a prior
+
+Suppose we belive the success rate is around 30% but we want a prior that is not too restrictive:
+
+```{r}
+library(bayesAB)
+plotBeta(5,15)
+```
+
+Let's see if we can find a prior that's not too restrictive but centered more around 0.3
+
+```{r}
+plotBeta(30,60)
+```
+
+### Step 3: estimate the posterior
+
+We showed above that with a beta prior and binomial likelihood we get a posterior distribution for this particular problem of:
+
+$P(\theta|X) = Beta(a',b')$
+
+with
+
+$a'= 30 + \sum_{i}^{100} x_{i}$
+
+and
+
+$b' = 60 + 100 - \sum_{i}^{100}x_{i}$
+
+For our case this leads to:
+```{r}
+a <- 30 + sum(X)
+a
+b <- 60 + 100 - sum(X)
+b
+```
+
+### Step 4: plot the posterior
+
+
+```{r}
+hist(rbeta(1000,a,b))
+
+E_theta = a/(a+b)
+var_theta = (a*b)/(((a+b)^2)*(a+b+1))
+
+E_theta
+var_theta
+```
+
+
+### Step 5: Sensativity to priors
+
+First, let's wrap Steps 1 - 4 up into a function that we can call iteratively:
+
+```{r}
+bayes.mams <- function(X, a.prior,b.prior){
+
+  
+  a.prime <-   a.prior + sum(X)
+  b.prime <- b.prior + length(X) - sum(X)
+
+  E_theta = a.prime/(a.prime+b.prime)
+  var_theta = (a.prime*b.prime)/(((a.prime+b.prime)^2)*(a.prime+b.prime+1))
+  
+  return(list(E_theta,var_theta,rbeta(1000,a.prime,b.prime)))
+  
+}
+
+
+```
+
+Now let's use this function to compare the data to the bayesian predicted posterior under different choices of for the prior:
+
+```{r}
+bayes <- bayes.mams(X=X,a.prior=1,b.prior=2)
+
+# Success rate in the underlying data:
+sum(X)/length(X)
+
+# Expected value of the prior
+1/(1+2)
+```
+
+```{r}
+# Expected value of the posterior distribution:
+bayes[[1]]
+```
+
+```{r}
+#plot the prior and posterior for a really diffuse prior
+prior <- rbeta(1000,1,2)
+post <- bayes.mams(X=X,a.prior=1,b.prior=2)[[3]]
+plot.df <- data.frame(rbind(data.frame(x=prior,label='prior'),data.frame(x=post,label='posterior')))
+ggplot(plot.df,aes(x=x,color=label)) + geom_density() + theme_bw()
+```
+
+Now do the whole thing again but make the prior a little more informative:
+
+```{r}
+# Success rate in the underlying data:
+sum(X)/length(x)
+```
+
+```{r}
+# Expected value of the posterior distribution:
+post.tmp <- bayes.mams(X=X,a.prior=300,b.prior=600)
+post.tmp[[1]]
+```
+
+```{r}
+#plot the prior and posterior for a = 3, b=6
+prior <- rbeta(1000,300,600)
+
+plot.df <- data.frame(rbind(data.frame(x=prior,label='prior'),data.frame(x=post.tmp[[3]],label='posterior')))
+ggplot(plot.df,aes(x=x,color=label)) + geom_density() + theme_bw()
+```
+
+
+## Extension to Explicit AB Testing
+
+To make the final jump from our last section to a traditional AB testing framework we just need to implement the steps above a few more times:
+
+Suppose we believe that page A has a success rate of 0.3 and an improvement (page B) will offer a success rate of 0.4.  We are going to test this on 100 visitors.
+
+
+```{r}
+X <- rbinom(1000,1,0.3)
+sum(X)/length(X)
+Y <- rbinom(1000,1,0.4)
+sum(Y)/length(Y)
+
+b1 <-bayes.mams(X=X,a.prior=1,b.prior=2)
+b2 <-bayes.mams(X=Y,a.prior=1,b.prior=2) 
+
+b1[[1]]
+b2[[1]]
+```
+
+```{r}
+plot.df <- rbind(data.frame(x=b1[[3]],label='A'),data.frame(x=b2[[3]],label='B'))
+ggplot(plot.df,aes(x=x,color=label)) + geom_density() + theme_bw()
+```
+
+How many sample in B are under the A curve?
+
+```{r}
+sum(unlist(b2[[3]]) < max(unlist(b1[[3]])))/length(unlist(b2[[3]]))
+```
+
+We might interpret this as a 13-14% chance that the success rate for B is less than the success rate for A.  
+
+Now let's see if the [bayesAB](https://cran.r-project.org/web/packages/bayesAB/index.html) package in R gives us something similar:
+
+```{r}
+ab1 <- bayesTest(X, Y,
+                 priors = c('alpha' = 1, 'beta' = 2),
+                 n_samples = 1e5, distribution = 'bernoulli')
+
+print(ab1)
+
+```
+
+```{r}
+summary(ab1)
+```
+http://fportman.com/blog/bayesab-a-new-r-package-for-bayesian-ab-testing/
+
+[a p hacking script](https://www.machinegurning.com/rstats/bayes_r/)
+
+[this one](https://conversionxl.com/blog/bayesian-frequentist-ab-testing/) has some fun quotes about Bayesian and Frequentist Statistics in an AB Testing Context.
+
+
+# For Next Time
+
+1. Main effects, interaction effects, and power
+
+2. Type M and Type S Error
+
+
+
 
