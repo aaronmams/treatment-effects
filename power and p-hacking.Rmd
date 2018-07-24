@@ -3,8 +3,17 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+# Intro
 
-### Resources
+The first of 2 R Notebooks on statistical power, controlled experiments, p-values, p-hacking, and AB Testing.  This vignette has a couple parts:
+
+1. some light reading related to the issues mentioned above
+
+2. some R code to walk through the key points involved in statistical power calculations and p-values
+
+3. some R code to introduce the concept of Bayesian AB Testing.
+
+## Resources
 
 ```{r}
 library(ggplot2)
@@ -61,6 +70,11 @@ To get started talking about p-values, controlled experiments and p-hacking here
 Also known as Researcher Degrees of Freedom.
 
 [Gelman Explains here](http://www.stat.columbia.edu/~gelman/research/unpublished/p_hacking.pdf)
+
+### P-hacking
+
+[This post](https://www.machinegurning.com/rstats/bayes_r/) has a lot of cool stuff about Bayesian AB Testing...but also has kind of a cool R script that illustrates p-hacking in an AB Testing context.
+
 
 # Now for some code related to statistical power
 
@@ -271,9 +285,16 @@ power.prop.test(p1=0.04,p2=0.044,n=5000,alternative="one.sided")
 
 
 
-### Quick Introduction to Bayesian AB Testing
+# Quick Introduction to Bayesian AB Testing
 
 There are several gentle introductions to Bayesian AB testing on the web.  [I really like this one](https://zlatankr.github.io/posts/2017/04/07/bayesian-ab-testing) for it's nice blend of intuition and math.
+
+[Here is another one](http://fportman.com/blog/bayesab-a-new-r-package-for-bayesian-ab-testing/) by the author of R package to do Bayesian AB Testing.
+
+[This one](https://conversionxl.com/blog/bayesian-frequentist-ab-testing/) has some fun quotes about Bayesian and Frequentist Statistics in an AB Testing Context.
+
+
+## Fundamentals
 
 Bayes Rule says:
 
@@ -331,6 +352,7 @@ and
 
 $b' = b + N - \sum_{i}^{N}x_{i}$
 
+## A 5 Step Walkthrough
 
 Let's go ahead and step through this process from start-to-finish:
 
@@ -509,11 +531,6 @@ print(ab1)
 ```{r}
 summary(ab1)
 ```
-http://fportman.com/blog/bayesab-a-new-r-package-for-bayesian-ab-testing/
-
-[a p hacking script](https://www.machinegurning.com/rstats/bayes_r/)
-
-[this one](https://conversionxl.com/blog/bayesian-frequentist-ab-testing/) has some fun quotes about Bayesian and Frequentist Statistics in an AB Testing Context.
 
 
 # For Next Time
